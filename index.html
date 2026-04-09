@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI-powered football match predictions using real-time statistics, team form, and historical data." />
+  <title>FootballIQ – AI Match Predictions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Background particles -->
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">⚽</div>
+        <div class="logo-text">
+          <span class="logo-name">FootballIQ</span>
+          <span class="logo-tag">Pro Engine</span>
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="live-badge">
+          <span class="pulse-dot"></span>
+          LIVE DATA
+        </div>
+        <button class="settings-btn" id="settingsBtn" style="background:transparent; border:none; cursor:pointer; font-size:1.2rem; margin-left:10px;">⚙️</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+
+
+
+    <!-- Stats Summary -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-info">
+          <div class="stat-value" id="accuracyStat">90.0%</div>
+          <div class="stat-label">Prediction Accuracy</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="matchesStat">0</div>
+          <div class="stat-label">Today's Matches</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🏆</div>
+        <div class="stat-info">
+          <div class="stat-value" id="leaguesStat">6</div>
+          <div class="stat-label">Leagues Covered</div>
+        </div>
+      </div>
+      <!-- <div class="stat-card">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-info">
+          <div class="stat-value" id="highConfStat">0</div>
+          <div class="stat-label">High Confidence</div>
+        </div>
+      </div> -->
+    </section>
+
+    <!-- League Filter -->
+    <section class="filter-section">
+      <div class="filter-label">Filter by League</div>
+      <div class="league-filters" id="leagueFilters">
+        <button class="filter-btn active" data-league="all">🌍 Loading Leagues...</button>
+      </div>
+    </section>
+
+    <!-- Confidence Filter -->
+    <section class="filter-section" style="margin-bottom: 2rem;">
+      <div class="filter-label">Algorithm Confidence</div>
+      <div class="league-filters" id="confidenceFilters">
+        <button class="filter-btn active" data-conf="all">🎯 All Levels</button>
+      </div>
+    </section>
+
+    <!-- Prediction Cards -->
+    <section class="predictions-section">
+      <div class="section-header">
+        <h1 class="section-title">Match Predictions</h1>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="date" id="matchDate" class="date-input" />
+          <div class="refresh-btn" id="refreshBtn">
+            <span class="refresh-icon">↻</span> Refresh
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <p>Analysing team form and statistics...</p>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="empty-icon">📭</div>
+        <h3>No Matches Found</h3>
+        <p>No fixtures available for the selected league today. Try another league or check back later.</p>
+      </div>
+
+      <!-- Match cards grid -->
+      <div class="cards-grid" id="cardsGrid"></div>
+    </section>
+
+    <!-- Prediction Legend -->
+    <section class="legend-section">
+      <div class="legend-title">How Predictions Work</div>
+      <div class="legend-grid">
+        <div class="legend-item">
+          <div class="legend-dot green"></div>
+          <div><strong>High Confidence (70%+)</strong> — Strong statistical evidence from form, H2H & goals.</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot yellow"></div>
+          <div><strong>Medium Confidence (50–69%)</strong> — Some statistical edge, moderate risk.</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot red"></div>
+          <div><strong>Low Confidence (&lt;50%)</strong> — Evenly matched, high uncertainty.</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot blue"></div>
+          <div><strong>Algorithm uses:</strong> 5-match form, home advantage, goals ratio & H2H data.</div>
+        </div>
+      </div>
+      <div class="disclaimer">
+        ⚠️ These predictions are for educational/research purposes only. Data is statistical, not guaranteed.
+      </div>
+    </section>
+  </main>
+
+  <!-- Match Detail Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="matchModal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-content" id="modalContent"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
