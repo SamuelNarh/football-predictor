@@ -1,5 +1,3 @@
-let RAPIDAPI_KEY = localStorage.getItem('football_iq_key') || '';
-const API_BASE = 'https://api-football-v3.p.rapidapi.com/v3';
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard';
 
 let allMatches = [];
@@ -36,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initUI();
     spawnParticles();
     setCurrentDate();
-    initSettings();
     loadMatches();
 
     const refreshBtn = document.getElementById('refreshBtn');
@@ -96,24 +93,7 @@ function spawnParticles() {
     }
 }
 
-// ---- API Core ----
-async function apiFetch(endpoint) {
-    if (!RAPIDAPI_KEY) throw new Error('NO_KEY');
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'GET',
-        headers: {
-            'x-rapidapi-key': RAPIDAPI_KEY,
-            'x-rapidapi-host': 'api-football-v3.p.rapidapi.com'
-        }
-    });
-    if (response.status === 403 || response.status === 401) throw new Error('INVALID_KEY');
-    if (response.status === 429) throw new Error('RATE_LIMIT');
-    if (!response.ok) throw new Error(`API_ERROR: ${response.status}`);
-    const data = await response.json();
-    if (data.errors && data.errors.requests) throw new Error(data.errors.requests);
-    if (data.errors && data.errors.token) throw new Error('INVALID_KEY');
-    return data;
-}
+// ---- Data Core ----
 
 async function loadMatches() {
     showLoading();
@@ -485,27 +465,7 @@ function renderProIntelligence(container, match, pred) {
     `;
 }
 
-function renderBasicIntelligence(container, match, note) {
-    container.innerHTML = `
-        <div style="text-align:center; margin-bottom:1.5rem;">
-            <img src="${match.leagueLogo}" style="height:40px; margin-bottom:8px;" onerror="this.style.display='none'"/>
-            <div style="font-size:1.2rem; font-weight:800;">${match.homeTeam} vs ${match.awayTeam}</div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:5px;">${match.venue}</div>
-        </div>
 
-        <div style="background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; padding:20px; text-align:center;">
-            <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.6;">
-                <p><strong>Recent Form:</strong><br/>
-                Home: ${match.homeForm} | Away: ${match.awayForm}</p>
-                <div style="margin-top:15px; color:var(--accent-blue); font-weight:700;">${note}</div>
-            </div>
-        </div>
-        
-        <div style="margin-top:20px; text-align:center;">
-             <a href="https://rapidapi.com/apifootball/api/apifootball3" target="_blank" style="font-size:0.7rem; color:var(--text-muted);">View on RapidAPI for Full Coverage →</a>
-        </div>
-    `;
-}
 
 // ---- UI Helpers ----
 function showLoading() {
@@ -529,33 +489,7 @@ function updateStats() {
     if (ls) ls.textContent = new Set(allMatches.map(m => m.leagueId)).size;
 }
 
-function initSettings() {
-    const btn = document.getElementById('settingsBtn');
-    const panel = document.getElementById('settingsPanel');
-    const close = document.getElementById('closeSettings');
-    const save = document.getElementById('saveApiKey');
-    const input = document.getElementById('apiKeyInput');
 
-    if (!btn || !panel || !close || !save || !input) return;
-
-    if (RAPIDAPI_KEY) input.value = RAPIDAPI_KEY;
-
-    btn.onclick = () => {
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    };
-
-    close.onclick = () => {
-        panel.style.display = 'none';
-    };
-
-    save.onclick = () => {
-        RAPIDAPI_KEY = input.value.trim();
-        localStorage.setItem('football_iq_key', RAPIDAPI_KEY);
-        panel.style.display = 'none';
-        showToast('Settings saved!', 'success');
-        loadMatches();
-    };
-}
 
 function showToast(message, type = 'info') {
     const existing = document.querySelector('.toast');
