@@ -292,26 +292,45 @@ function renderFilteredMatches() {
 }
 
 function generatePredictionFast(match) {
-    let pHome = 35, pDraw = 30, pAway = 35;
-    const nameWeight = (match.homeTeam.length - match.awayTeam.length) * 2;
-    const idWeight = (parseInt(match.homeId || 0) % 10) - (parseInt(match.awayId || 0) % 10);
-    pHome += nameWeight + idWeight;
-    pAway -= (nameWeight + idWeight);
+    // Phase 1: Parse Real ESPN Form Data (e.g. "WWDLW")
+    function getFormScore(form) {
+        if (!form || form === '?' || form.length === 0) return 40; // Default baseline if no data
+        let points = 0;
+        let possible = form.length * 3;
+        for (let char of form.toUpperCase()) {
+            if (char === 'W') points += 3;
+            else if (char === 'D') points += 1;
+        }
+        return (points / possible) * 100;
+    }
 
-    if (pHome > 75) { pHome -= 20; pAway += 15; }
-    if (pAway > 75) { pAway -= 20; pHome += 15; }
-    if (pHome < 10) { pHome += 15; pDraw -= 5; }
-    if (pAway < 10) { pAway += 15; pDraw -= 5; }
+    const homeFormRank = getFormScore(match.homeForm);
+    const awayFormRank = getFormScore(match.awayForm);
 
-    const total = pHome + pDraw + pAway;
-    pHome = Math.round((pHome / total) * 100);
-    pDraw = Math.round((pDraw / total) * 100);
-    pAway = 100 - pHome - pDraw;
+    // Phase 2: Compute Vectors
+    let rawHome = homeFormRank + 12; // Static Home Pitch Advantage Weight
+    let rawAway = awayFormRank;
+    
+    // Dynamic Draw Vector (tight games draw more often)
+    let rawDraw = 32 - (Math.abs(rawHome - rawAway) / 1.5);
+    if (rawDraw < 10) rawDraw = 10;
 
-    // Advanced SportyBet Market Simulator (Balanced Output)
+    // Phase 3: Normalize to 100% Bounds
+    const total = rawHome + rawAway + rawDraw;
+    let pHome = Math.round((rawHome / total) * 100);
+    let pAway = Math.round((rawAway / total) * 100);
+    let pDraw = 100 - pHome - pAway;
+
+    // Phase 4: Data-Driven Expectancy Metrics
+    // Teams with strong recent form generally push more aggressive offensive maneuvers
+    const formIndex = (homeFormRank + awayFormRank) / 200; // 0.0 to 1.0 range
+    
+    // High form means more goals, but extreme differentials usually equal heavy wins
+    const goalExpectancy = 1.0 + (formIndex * 2.5) + (Math.abs(pHome - pAway) > 30 ? 0.8 : 0);
+    const cornerExpectancy = 7.0 + (formIndex * 4.5);
+
+    // Generate static hash to ensure deterministic variety in confidence metrics
     const hash = match.homeTeam.length + match.awayTeam.length + parseInt(match.homeId || 0) + parseInt(match.awayId || 0);
-    const goalExpectancy = (hash % 5) + 0.5; // 0.5 to 4.5
-    const cornerExpectancy = 7 + (hash % 6); // 7 to 12
 
     let bestOptions = [];
 
@@ -342,6 +361,37 @@ function generatePredictionFast(match) {
     // 4. Corners (Only triggered dynamically for very high intensity games, never forced)
     if (cornerExpectancy >= 11 && (pHome > 60 || pAway > 60)) {
         bestOptions.push({ market: 'Corners Over 8.5', conf: 88 + (hash % 5), advice: 'High offensive wing pressure favors corners.' });
+    }
+
+    // 5. Deep Advanced SportyBet Complex Markets
+    if (pHome >= 45 && goalExpectancy >= 2.0) {
+        bestOptions.push({ market: `Home Team or Over 2.5`, conf: pHome + 40 + (hash % 5), advice: 'Super-flexible: Wins if Home avoids losing OR game has 3 goals.' });
+    }
+    if (pAway >= 45 && goalExpectancy >= 2.0) {
+        bestOptions.push({ market: `Away or Over 2.5`, conf: pAway + 40 + (hash % 5), advice: 'Super-flexible: Wins if Away avoids losing OR game has 3 goals.' });
+    }
+    
+    if (pHome >= 60 && goalExpectancy >= 1.5) {
+        bestOptions.push({ market: `Home & Over 1.5 (${match.homeTeam})`, conf: pHome + 25, advice: 'Requires favored win and avoiding 1-0 or 0-0.' });
+    }
+    if (pAway >= 60 && goalExpectancy >= 1.5) {
+        bestOptions.push({ market: `Away & Over 1.5 (${match.awayTeam})`, conf: pAway + 25, advice: 'Requires favored win and avoiding 1-0 or 0-0.' });
+    }
+
+    if (Math.abs(pHome - pAway) < 25 && goalExpectancy <= 3.0) {
+        bestOptions.push({ market: `Any Team To Score 3 or More Goals in a Row - NO`, conf: 96 + (hash % 3), advice: 'No team will go on a 3-goal uninterrupted streak in tight game.' });
+    }
+
+    // Heavy Dominant & Asian Handicaps
+    if (pHome >= 65) {
+        bestOptions.push({ market: `1X2 - 2UP (${match.homeTeam})`, conf: pHome + 28, advice: 'Strong chances to immediately clear a 2-goal lead.' });
+    }
+    if (pAway >= 65) {
+        bestOptions.push({ market: `1X2 - 2UP (${match.awayTeam})`, conf: pAway + 28, advice: 'Strong chances to immediately clear a 2-goal lead.' });
+    }
+    if (pHome <= 35 && pAway >= 50) {
+        bestOptions.push({ market: `Asian Handicap: ${match.homeTeam} +1.5`, conf: pAway + 35, advice: 'Extensive 2-goal cushion for Home underdog.' });
+        bestOptions.push({ market: `1X2 - 1UP (${match.homeTeam})`, conf: pAway + 30, advice: 'Virtual 1-goal advantage.' });
     }
 
     // Sort to find the absolute strongest bet
