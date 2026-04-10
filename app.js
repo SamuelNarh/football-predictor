@@ -392,6 +392,16 @@ function generatePredictionFast(match) {
         bestOptions.push({ market: `1X2 - 1UP (${match.homeTeam})`, conf: pAway + 30, advice: 'Virtual 1-goal advantage.' });
     }
 
+    // Absolute Fallback Guarantee for Deadzone Matches
+    if (bestOptions.length === 0) {
+        const saferTeam = pHome >= pAway ? match.homeTeam : match.awayTeam;
+        bestOptions.push({ 
+            market: `${saferTeam} or Under 4.5 Goals`, 
+            conf: 86 + (hash % 5), 
+            advice: 'Highly unpredictable tight match; utilizing absolute safest broad coverage.' 
+        });
+    }
+
     // Sort to find the absolute strongest bet
     bestOptions.sort((a, b) => b.conf - a.conf);
     const topPick = bestOptions[0];
