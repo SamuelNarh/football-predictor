@@ -378,9 +378,7 @@ function generatePredictionFast(match) {
         bestOptions.push({ market: `Away & Over 1.5 (${match.awayTeam})`, conf: pAway + 25, advice: 'Requires favored win and avoiding 1-0 or 0-0.' });
     }
 
-    if (Math.abs(pHome - pAway) < 25 && goalExpectancy <= 3.0) {
-        bestOptions.push({ market: `Any Team To Score 3 or More Goals in a Row - NO`, conf: 96 + (hash % 3), advice: 'No team will go on a 3-goal uninterrupted streak in tight game.' });
-    }
+
 
     // Heavy Dominant & Asian Handicaps
     if (pHome >= 65) {
