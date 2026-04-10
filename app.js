@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalClose = document.getElementById('modalClose');
     if (modalClose) modalClose.addEventListener('click', closeModal);
 
+    const vipSlipBtn = document.getElementById('vipSlipBtn');
+    if (vipSlipBtn) vipSlipBtn.addEventListener('click', generateVIPSlip);
+
     const modalOverlay = document.getElementById('modalOverlay');
     if (modalOverlay) {
         modalOverlay.addEventListener('click', (e) => {
@@ -137,6 +140,7 @@ function transformMatch(ev) {
         kickoff: ev.date,
         status: comp.status.type.shortDetail,
         isLive: comp.status.type.state === 'in',
+        isFinished: comp.status.type.state === 'post',
         leagueId: extractedLeagueId,
         leagueName: mappedContext.name,
         country: mappedContext.country,
@@ -418,6 +422,55 @@ function generatePredictionFast(match) {
     };
 }
 
+function evaluateMarket(market, match) {
+    if (!match.isFinished || match.homeScore === null || match.awayScore === null) return 'pending';
+    
+    const h = parseInt(match.homeScore);
+    const a = parseInt(match.awayScore);
+    const total = h + a;
+    const txt = market.toLowerCase();
+    
+    if (txt.includes('corners') || txt.includes('3 or more goals in a row')) return 'unknown';
+
+    let won = null;
+
+    if (txt.includes('home win') && !txt.includes('1up') && !txt.includes('2up')) won = (h > a);
+    else if (txt.includes('away win') && !txt.includes('1up') && !txt.includes('2up')) won = (h < a);
+    else if (txt.includes('home or draw (1x)')) won = (h >= a);
+    else if (txt.includes('away or draw (x2)')) won = (h <= a);
+    else if (txt.includes('draw or over 2.5')) won = (h === a || total > 2.5);
+    else if (txt.includes('home team or over 2.5')) won = (h >= a || total > 2.5);
+    else if (txt.includes('away or over 2.5')) won = (h <= a || total > 2.5);
+    else if (txt.includes('home team or under 2.5')) won = (h >= a || total < 2.5);
+    else if (txt.includes('away or under 2.5')) won = (h <= a || total < 2.5);
+    else if (txt.includes('home & over 1.5')) won = (h > a && total > 1.5);
+    else if (txt.includes('away & over 1.5')) won = (h < a && total > 1.5);
+    else if (txt.includes('over 2.5 goals')) won = (total > 2.5);
+    else if (txt.includes('over 1.5 goals')) won = (total > 1.5);
+    else if (txt.includes('under 4.5 goals')) won = (total < 4.5);
+    else if (txt.includes('under 3.5')) won = (total < 3.5);
+    else if (txt.includes('over 0.5 goals') && txt.includes('home')) won = (h > 0);
+    else if (txt.includes('over 0.5 goals') && txt.includes('away')) won = (a > 0);
+    else if (txt.includes('1x2 - 2up')) {
+        if (txt.includes('home')) won = (h >= a); // Rough approximation of payout edge
+        if (txt.includes('away')) won = (h <= a); 
+    }
+    else if (txt.includes('1x2 - 1up') && txt.includes(match.homeTeam.toLowerCase())) won = (h + 1 > a);
+    else if (txt.includes('asian handicap:') && txt.includes('+1.5')) {
+        if (txt.includes(match.homeTeam.toLowerCase())) won = (h + 1.5 > a);
+        else won = (a + 1.5 > h);
+    }
+    else if (txt.includes('or under 4.5 goals')) {
+        let teamSafe = false;
+        if (txt.includes(match.homeTeam.toLowerCase()) && h >= a) teamSafe = true;
+        if (txt.includes(match.awayTeam.toLowerCase()) && h <= a) teamSafe = true;
+        won = (teamSafe || total < 4.5);
+    }
+    
+    if (won === null) return 'unknown';
+    return won ? 'win' : 'loss';
+}
+
 function createMatchCard(match, index) {
     const card = document.createElement('div');
     card.className = 'match-card';
@@ -425,13 +478,25 @@ function createMatchCard(match, index) {
 
     const pred = generatePredictionFast(match);
 
+    let resultBadge = '';
+    if (match.isFinished && match.homeScore !== null) {
+        const result = evaluateMarket(pred.tip, match);
+        if (result === 'win') {
+            resultBadge = `<span style="background:rgba(0,230,118,0.2); color:#00e676; padding:2px 6px; border-radius:4px; font-weight:900; border:1px solid rgba(0,230,118,0.5); margin-left:8px; display:inline-block;">✅ WON</span>`;
+        } else if (result === 'loss') {
+            resultBadge = `<span style="background:rgba(255,61,95,0.2); color:#ff3d5f; padding:2px 6px; border-radius:4px; font-weight:900; border:1px solid rgba(255,61,95,0.5); margin-left:8px; display:inline-block;">❌ LOST</span>`;
+        } else if (result === 'unknown') {
+            resultBadge = `<span style="background:rgba(255,255,255,0.1); color:#ccc; padding:2px 6px; border-radius:4px; font-weight:900; margin-left:8px; display:inline-block;">⏸ TBD</span>`;
+        }
+    }
+
     card.innerHTML = `
     <div class="card-header">
       <div class="league-info">
         <img src="${match.leagueLogo}" style="height: 12px; margin-right: 4px;" onerror="this.style.display='none'"/>
         <span>${match.leagueName}</span>
       </div>
-      <div class="match-time ${match.isLive ? 'live' : ''}">${match.isLive ? 'LIVE' : formatKickoffTime(match.kickoff)}</div>
+      <div class="match-time ${match.isLive ? 'live' : ''}">${match.isFinished ? 'FT' : (match.isLive ? 'LIVE' : formatKickoffTime(match.kickoff))}</div>
     </div>
     <div class="teams-row" style="margin-bottom: 8px;">
       <div class="team">
@@ -445,8 +510,8 @@ function createMatchCard(match, index) {
       </div>
     </div>
     <div class="card-footer" style="flex-direction: column; align-items: stretch; gap: 8px; border-top: 1px solid var(--glass-border); padding-top: 12px; margin-top: 8px;">
-      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary);">
-        <span>Best Pick: <strong style="color:var(--accent-blue);">${pred.tip}</strong> <span style="background:rgba(0,230,118,0.2); color:#00e676; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">${pred.conf}% Safe</span></span>
+      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-secondary); align-items:center;">
+        <span>Best Pick: <strong style="color:var(--accent-blue);">${pred.tip}</strong> <span style="background:rgba(0,230,118,0.2); color:#00e676; padding:2px 6px; border-radius:4px; font-weight:700; margin-left:4px;">${pred.conf}% Safe</span>${resultBadge}</span>
       </div>
       <div class="prob-bars" style="height:8px; border-radius:4px; overflow:hidden;">
           <div class="prob-bar home" style="flex:${pred.pHome};"></div>
@@ -547,6 +612,92 @@ function showLoading() {
 function closeModal() {
     document.getElementById('modalOverlay').classList.remove('open');
     document.body.style.overflow = '';
+}
+
+function generateVIPSlip() {
+    if (!allMatches || allMatches.length === 0) {
+        return;
+    }
+
+    const content = document.getElementById('modalContent');
+    content.innerHTML = `<div style="text-align:center; padding:50px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--text-secondary);">Curating VIP 100+ Odds Accumulator...</p></div>`;
+    document.getElementById('modalOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(() => {
+        // Run AI on all matches
+        const enriched = allMatches.map(m => {
+            const predMetrics = generatePredictionFast(m);
+            // Mathematically restrict decimal odds to realistic boundaries (e.g. 99% confident ~ 1.08 odds, 94% confident ~ 1.45 odds)
+            const baseOdds = 1.05 + ((100 - predMetrics.conf) * 0.08); 
+            return { match: m, pred: predMetrics, estimatedOdds: baseOdds };
+        });
+
+        // Filter and compile slip from safest to riskiest
+        enriched.sort((a, b) => b.pred.conf - a.pred.conf);
+
+        let slip = [];
+        let totalOdds = 1.0;
+        
+        // Grab top super safe matches until we hit around 100 odds or run out of safe matches
+        for (let item of enriched) {
+            if (item.pred.conf < 93) break; // Strict safety cutoff for VIP Slip
+            
+            slip.push(item);
+            totalOdds *= item.estimatedOdds;
+            
+            if (totalOdds >= 150.0 && slip.length >= 5) break; 
+        }
+
+        if (slip.length === 0) {
+            content.innerHTML = `
+                <div style="text-align:center; padding:40px; color:#fff;">
+                    <div style="font-size:3rem; margin-bottom:10px;">⚠️</div>
+                    <div style="font-size:1.2rem; font-weight:700;">No ultra-safe games available today.</div>
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin-top:10px;">The AI refuses to build a slip today because the available matches are too volatile.</p>
+                    <button onclick="closeModal()" style="padding:10px 20px; border-radius:8px; border:none; background:rgba(255,255,255,0.1); color:#fff; font-weight:600; cursor:pointer; margin-top:20px;">Close Window</button>
+                </div>
+            `;
+            return;
+        }
+
+        // Render Slip Modal
+        content.innerHTML = `
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <div style="font-size:2.5rem; margin-bottom:5px;">💎</div>
+                <div style="font-size:1.4rem; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:1px;">VIP Banker Slip</div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Estimated Payout: <strong style="color:#10b981; font-size:1.2rem;">${totalOdds.toFixed(2)}x</strong></div>
+            </div>
+            
+            <div style="background:rgba(255,152,0,0.1); border-left:3px solid #ff9800; border-radius:4px; padding:12px; margin-bottom:20px; font-size:0.8rem; color:#e0e0e0; line-height:1.4;">
+                <strong style="color:#ff9800;">INSTRUCTION:</strong> Manually search these exact fixtures on SportyBet and select exactly the specific markets listed below to assemble this accumulator.
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px; max-height:450px; overflow-y:auto; padding-right:5px; margin-bottom:10px;">
+                ${slip.map((item, i) => `
+                    <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-left:4px solid #10b981; border-radius:8px; padding:12px; transition:transform 0.2s; cursor:default;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                            <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${item.match.leagueName}</span>
+                            <span style="font-size:0.75rem; color:#10b981; font-weight:800;">~${item.estimatedOdds.toFixed(2)} Odds</span>
+                        </div>
+                        <div style="font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:10px;">
+                            ${item.match.homeTeam} <span style="color:var(--text-muted); font-size:0.8rem; font-weight:500;">vs</span> ${item.match.awayTeam}
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="background:rgba(255,255,255,0.08); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; flex:1; margin-right:10px;">
+                                ✨ ${item.pred.tip}
+                            </div>
+                            <div style="font-size:0.7rem; font-weight:800; background:rgba(16,185,129,0.15); color:#10b981; padding:4px 8px; border-radius:4px;">
+                                ${item.pred.conf}% SAFE
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <button onclick="closeModal()" style="width:100%; padding:12px; border-radius:8px; border:none; background:rgba(255,255,255,0.1); color:#fff; font-weight:600; cursor:pointer; margin-top:5px; transition:background 0.2s;">Close Slip</button>
+        `;
+    }, 800);
 }
 
 function formatKickoffTime(s) {
