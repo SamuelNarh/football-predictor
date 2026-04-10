@@ -437,8 +437,8 @@ function generatePredictionFast(match) {
     // Absolute Fallback Guarantee for Deadzone Matches
     if (bestOptions.length === 0) {
         bestOptions.push({ 
-            market: `Under 3.5 Goals`, 
-            conf: 88 + (hash % 5), 
+            market: `Under 4.5 Goals`, 
+            conf: 90 + (hash % 5), 
             advice: 'Highly unpredictable tight match; utilizing safe broad goal coverage instead of relying on a winner.' 
         });
     }
