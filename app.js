@@ -476,10 +476,10 @@ function evaluateMarket(market, match) {
     else if (txt.includes('home or draw (1x)')) won = (h >= a);
     else if (txt.includes('away or draw (x2)')) won = (h <= a);
     else if (txt.includes('draw or over 2.5')) won = (h === a || total > 2.5);
-    else if (txt.includes('home team or over 2.5')) won = (h >= a || total > 2.5);
-    else if (txt.includes('away or over 2.5')) won = (h <= a || total > 2.5);
-    else if (txt.includes('home team or under 2.5')) won = (h >= a || total < 2.5);
-    else if (txt.includes('away or under 2.5')) won = (h <= a || total < 2.5);
+    else if (txt.includes('home team or over 2.5')) won = (h > a || total > 2.5);
+    else if (txt.includes('away or over 2.5')) won = (h < a || total > 2.5);
+    else if (txt.includes('home team or under 2.5')) won = (h > a || total < 2.5);
+    else if (txt.includes('away or under 2.5')) won = (h < a || total < 2.5);
     else if (txt.includes('home & over 1.5')) won = (h > a && total > 1.5);
     else if (txt.includes('away & over 1.5')) won = (h < a && total > 1.5);
     else if (txt.includes('over 2.5 goals')) won = (total > 2.5);
