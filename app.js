@@ -691,13 +691,11 @@ function generateVIPSlip() {
                 }
 
                 if (adjustedConf >= 95) { 
-                    const baseOdds = 1.12 + ((100 - Math.min(adjustedConf, 100)) * 0.06); 
                     possiblePicks.push({ 
                         match: m, 
                         pred: predMetrics, 
                         marketText: opt.market,
-                        adjustedConf: adjustedConf,
-                        estimatedOdds: baseOdds 
+                        adjustedConf: adjustedConf
                     });
                 }
             });
@@ -707,7 +705,6 @@ function generateVIPSlip() {
         possiblePicks.sort((a, b) => b.adjustedConf - a.adjustedConf);
 
         let slip = [];
-        let totalOdds = 1.0;
         let leagueCounts = {};
         
         for (let pick of possiblePicks) {
@@ -719,9 +716,9 @@ function generateVIPSlip() {
             
             slip.push(pick);
             leagueCounts[pick.match.leagueId] = (leagueCounts[pick.match.leagueId] || 0) + 1;
-            totalOdds *= pick.estimatedOdds;
             
-            if (totalOdds >= 150.0 && slip.length >= 5) break; 
+            // Limit VIP Acca to the absolute top 8 safest matches available
+            if (slip.length >= 8) break; 
         }
 
         if (slip.length === 0) {
@@ -765,7 +762,7 @@ function generateVIPSlip() {
             <div style="text-align:center; margin-bottom:1.5rem;">
                 <div style="font-size:2.5rem; margin-bottom:5px;">💎</div>
                 <div style="font-size:1.4rem; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:1px;">VIP Banker Slip</div>
-                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Estimated Payout: <strong style="color:#10b981; font-size:1.2rem;">${totalOdds.toFixed(2)}x</strong></div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Contains Top ${slip.length} Safest AI Picks</div>
                 ${slipStatusBadge}
             </div>
             
@@ -787,7 +784,6 @@ function generateVIPSlip() {
                     <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-left:4px solid ${badge.includes('❌') ? '#ff3d5f' : '#10b981'}; border-radius:8px; padding:12px; transition:transform 0.2s; cursor:default;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                             <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${item.match.leagueName}</span>
-                            <span style="font-size:0.75rem; color:#10b981; font-weight:800;">~${item.estimatedOdds.toFixed(2)} Odds</span>
                         </div>
                         <div style="font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:10px;">
                             ${item.match.homeTeam} <span style="color:var(--text-muted); font-size:0.8rem; font-weight:500;">vs</span> ${item.match.awayTeam} ${badge}
