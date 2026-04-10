@@ -412,6 +412,7 @@ function generatePredictionFast(match) {
         tip: topPick.market, 
         conf: finalConf,
         advice: topPick.advice,
+        alternatives: bestOptions,
         goalsHome: (goalExpectancy * (pHome/100)).toFixed(1),
         goalsAway: (goalExpectancy * (pAway/100)).toFixed(1)
     };
@@ -477,7 +478,8 @@ async function openModal(match) {
                 advice: `${predMetrics.tip} - ${predMetrics.advice} (${predMetrics.conf}% Probability)`,
                 percent: { home: predMetrics.pHome + '%', draw: predMetrics.pDraw + '%', away: predMetrics.pAway + '%' },
                 winner: { name: predMetrics.tip },
-                goals: { home: predMetrics.goalsHome, away: predMetrics.goalsAway }
+                goals: { home: predMetrics.goalsHome, away: predMetrics.goalsAway },
+                alternatives: predMetrics.alternatives
             }
         };
 
@@ -519,6 +521,17 @@ function renderProIntelligence(container, match, pred) {
             <div class="modal-factor">🏆 <span>Winner Tip: ${pred.predictions.winner.name || 'Neutral'}</span></div>
             <div class="modal-factor">🥅 <span>Goals Forecast: ${pred.predictions.goals.home || 'Low'} - ${pred.predictions.goals.away || 'Low'}</span></div>
             <div class="modal-factor">📍 <span>Venue: ${match.venue}</span></div>
+        </div>
+
+        <div class="modal-prediction-title" style="margin-top:20px;">Alternative Safe Markets</div>
+        <div class="modal-factors" style="display:flex; flex-direction:column; gap:8px;">
+            ${pred.predictions.alternatives.slice(1, 4).map(alt => `
+                <div class="modal-factor" style="justify-content:space-between; align-items:center;">
+                    <span style="font-weight:600; color:#e0e0e0; font-size:0.8rem;">${alt.market}</span>
+                    <span style="background:rgba(255,152,0,0.15); color:#ff9800; padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:700;">${Math.min(alt.conf, 98)}% Safe</span>
+                </div>
+            `).join('')}
+            ${pred.predictions.alternatives.length <= 1 ? `<div class="modal-factor" style="color:var(--text-muted); justify-content:center;">No other safe markets found.</div>` : ''}
         </div>
     `;
 }
