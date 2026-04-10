@@ -407,10 +407,10 @@ function generatePredictionFast(match) {
 
     // 5. Deep Advanced SportyBet Complex Markets - TIGHTENED FOR <1/40 LOSS
     if (pHome >= 52 && goalExpectancy >= 2.2) {
-        bestOptions.push({ market: `Home Team or Over 2.5`, conf: pHome + 40 + (hash % 4), advice: 'Super-flexible: Wins if Home avoids losing OR game has 3 goals.' });
+        bestOptions.push({ market: `Home Team or Over 2.5`, conf: pHome + 20 + (hash % 4), advice: 'Super-flexible: Wins if Home avoids losing OR game has 3 goals.' });
     }
     if (pAway >= 52 && goalExpectancy >= 2.2) {
-        bestOptions.push({ market: `Away or Over 2.5`, conf: pAway + 40 + (hash % 4), advice: 'Super-flexible: Wins if Away avoids losing OR game has 3 goals.' });
+        bestOptions.push({ market: `Away or Over 2.5`, conf: pAway + 20 + (hash % 4), advice: 'Super-flexible: Wins if Away avoids losing OR game has 3 goals.' });
     }
     
     if (pHome >= 65 && goalExpectancy >= 1.6) {
@@ -688,6 +688,9 @@ function generateVIPSlip() {
                 let adjustedConf = opt.conf;
                 if (txt.includes('under 4.5') || txt.includes('over 0.5') || txt.includes('asian handicap:') || txt.includes('1x2 - 1up')) {
                     adjustedConf += 3; // Structural edge
+                }
+                if (txt.includes('or draw')) {
+                    adjustedConf += 5; // Heavily prioritize Double Chances over Team+Goal combos
                 }
 
                 if (adjustedConf >= 95) { 
