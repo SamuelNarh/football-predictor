@@ -436,11 +436,10 @@ function generatePredictionFast(match) {
 
     // Absolute Fallback Guarantee for Deadzone Matches
     if (bestOptions.length === 0) {
-        const saferTeam = pHome >= pAway ? match.homeTeam : match.awayTeam;
         bestOptions.push({ 
-            market: `${saferTeam} or Under 4.5 Goals`, 
-            conf: 86 + (hash % 5), 
-            advice: 'Highly unpredictable tight match; utilizing absolute safest broad coverage.' 
+            market: `Under 3.5 Goals`, 
+            conf: 88 + (hash % 5), 
+            advice: 'Highly unpredictable tight match; utilizing safe broad goal coverage instead of relying on a winner.' 
         });
     }
 
