@@ -691,7 +691,7 @@ function generateVIPSlip() {
                 }
 
                 if (adjustedConf >= 95) { 
-                    const baseOdds = 1.03 + ((100 - Math.min(adjustedConf, 100)) * 0.05); 
+                    const baseOdds = 1.12 + ((100 - Math.min(adjustedConf, 100)) * 0.06); 
                     possiblePicks.push({ 
                         match: m, 
                         pred: predMetrics, 
