@@ -657,31 +657,69 @@ function generateVIPSlip() {
     }
 
     const content = document.getElementById('modalContent');
-    content.innerHTML = `<div style="text-align:center; padding:50px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--text-secondary);">Curating VIP 100+ Odds Accumulator...</p></div>`;
+    content.innerHTML = `<div style="text-align:center; padding:50px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--text-secondary);">Executing VIP Magic Curation...</p></div>`;
     document.getElementById('modalOverlay').classList.add('open');
     document.body.style.overflow = 'hidden';
 
     setTimeout(() => {
-        // Run AI on all matches
-        const enriched = allMatches.map(m => {
+        let possiblePicks = [];
+
+        // Run deep structural analysis on every match
+        allMatches.forEach(m => {
             const predMetrics = generatePredictionFast(m);
-            // Mathematically restrict decimal odds to realistic boundaries (e.g. 99% confident ~ 1.08 odds, 94% confident ~ 1.45 odds)
-            const baseOdds = 1.05 + ((100 - predMetrics.conf) * 0.08); 
-            return { match: m, pred: predMetrics, estimatedOdds: baseOdds };
+            // Search through their ENTIRE alternative market tree to find absolute structural certainties
+            const allValidMarkets = [
+                { market: predMetrics.tip, conf: predMetrics.conf },
+                ...predMetrics.alternatives
+            ];
+
+            allValidMarkets.forEach(opt => {
+                const txt = opt.market.toLowerCase();
+                
+                // VIP Magic Rule 1: No direct Winner bets unless mathematically unstoppable
+                if ((txt.includes('home win') || txt.includes('away win')) && !txt.includes('1up') && !txt.includes('2up')) {
+                    if (opt.conf < 98) return; 
+                }
+
+                // VIP Magic Rule 2: Exclude inherently unpredictable markets
+                if (txt.includes('corners') || txt.includes('draw or')) return;
+
+                // VIP Magic Rule 3: Artificial boost for strictly structural / mathematical safety net bets
+                let adjustedConf = opt.conf;
+                if (txt.includes('under 4.5') || txt.includes('over 0.5') || txt.includes('asian handicap:') || txt.includes('1x2 - 1up')) {
+                    adjustedConf += 3; // Structural edge
+                }
+
+                if (adjustedConf >= 95) { 
+                    const baseOdds = 1.03 + ((100 - Math.min(adjustedConf, 100)) * 0.05); 
+                    possiblePicks.push({ 
+                        match: m, 
+                        pred: predMetrics, 
+                        marketText: opt.market,
+                        adjustedConf: adjustedConf,
+                        estimatedOdds: baseOdds 
+                    });
+                }
+            });
         });
 
-        // Filter and compile slip from safest to riskiest
-        enriched.sort((a, b) => b.pred.conf - a.pred.conf);
+        // Sort by our magic adjusted confidence score
+        possiblePicks.sort((a, b) => b.adjustedConf - a.adjustedConf);
 
         let slip = [];
         let totalOdds = 1.0;
+        let leagueCounts = {};
         
-        // Grab top super safe matches until we hit around 100 odds or run out of safe matches
-        for (let item of enriched) {
-            if (item.pred.conf < 93) break; // Strict safety cutoff for VIP Slip
+        for (let pick of possiblePicks) {
+            // Already picked this match?
+            if (slip.find(s => s.match.id === pick.match.id)) continue;
             
-            slip.push(item);
-            totalOdds *= item.estimatedOdds;
+            // VIP Magic Rule 4: Extreme Diversification (Max 2 matches from the same league to prevent systemic upsets)
+            if ((leagueCounts[pick.match.leagueId] || 0) >= 2) continue;
+            
+            slip.push(pick);
+            leagueCounts[pick.match.leagueId] = (leagueCounts[pick.match.leagueId] || 0) + 1;
+            totalOdds *= pick.estimatedOdds;
             
             if (totalOdds >= 150.0 && slip.length >= 5) break; 
         }
@@ -722,10 +760,10 @@ function generateVIPSlip() {
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div style="background:rgba(255,255,255,0.08); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; flex:1; margin-right:10px;">
-                                ✨ ${item.pred.tip}
+                                ✨ ${item.marketText}
                             </div>
                             <div style="font-size:0.7rem; font-weight:800; background:rgba(16,185,129,0.15); color:#10b981; padding:4px 8px; border-radius:4px;">
-                                ${item.pred.conf}% SAFE
+                                ${item.adjustedConf}% MAGIC
                             </div>
                         </div>
                     </div>
