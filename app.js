@@ -179,6 +179,36 @@ function buildLeagueFilters(matches) {
         renderFilteredMatches();
     };
     container.appendChild(stakesBtn);
+    
+    // Won Button
+    const wonBtn = document.createElement('button');
+    wonBtn.className = 'filter-btn';
+    wonBtn.innerHTML = '✅ Won';
+    wonBtn.style.color = '#00e676';
+    wonBtn.style.border = '1px solid #00e676';
+    wonBtn.style.fontWeight = 'bold';
+    wonBtn.onclick = () => {
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        wonBtn.classList.add('active');
+        activeLeague = 'won';
+        renderFilteredMatches();
+    };
+    container.appendChild(wonBtn);
+
+    // Lost Button
+    const lostBtn = document.createElement('button');
+    lostBtn.className = 'filter-btn';
+    lostBtn.innerHTML = '❌ Lost';
+    lostBtn.style.color = '#ff3d5f';
+    lostBtn.style.border = '1px solid #ff3d5f';
+    lostBtn.style.fontWeight = 'bold';
+    lostBtn.onclick = () => {
+        container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        lostBtn.classList.add('active');
+        activeLeague = 'lost';
+        renderFilteredMatches();
+    };
+    container.appendChild(lostBtn);
 
     // All Leagues Button
     const allBtn = document.createElement('button');
@@ -226,6 +256,16 @@ function renderFilteredMatches() {
         enriched.sort((a, b) => b.pred.conf - a.pred.conf);
         filtered = enriched.filter(item => item.pred.conf >= 95).map(item => item.match);
         if (filtered.length < 3) filtered = enriched.slice(0, 5).map(item => item.match);
+    } else if (activeLeague === 'won') {
+        filtered = allMatches.filter(m => {
+            if (!m.isFinished || m.homeScore === null) return false;
+            return evaluateMarket(generatePredictionFast(m).tip, m) === 'win';
+        });
+    } else if (activeLeague === 'lost') {
+        filtered = allMatches.filter(m => {
+            if (!m.isFinished || m.homeScore === null) return false;
+            return evaluateMarket(generatePredictionFast(m).tip, m) === 'loss';
+        });
     } else {
         filtered = allMatches.filter(m => activeLeague === 'all' || String(m.leagueId) === String(activeLeague));
     }
@@ -311,13 +351,13 @@ function generatePredictionFast(match) {
     const homeFormRank = getFormScore(match.homeForm);
     const awayFormRank = getFormScore(match.awayForm);
 
-    // Phase 2: Compute Vectors
-    let rawHome = homeFormRank + 12; // Static Home Pitch Advantage Weight
+    // Phase 2: Compute Vectors (Heavily Tightened)
+    let rawHome = homeFormRank + 15; // Increased home baseline to ensure high confidence filtering
     let rawAway = awayFormRank;
     
-    // Dynamic Draw Vector (tight games draw more often)
-    let rawDraw = 32 - (Math.abs(rawHome - rawAway) / 1.5);
-    if (rawDraw < 10) rawDraw = 10;
+    // Dynamic Draw Vector (tight games draw exponentially more)
+    let rawDraw = 36 - (Math.abs(rawHome - rawAway) / 1.2);
+    if (rawDraw < 12) rawDraw = 12;
 
     // Phase 3: Normalize to 100% Bounds
     const total = rawHome + rawAway + rawDraw;
@@ -326,12 +366,10 @@ function generatePredictionFast(match) {
     let pDraw = 100 - pHome - pAway;
 
     // Phase 4: Data-Driven Expectancy Metrics
-    // Teams with strong recent form generally push more aggressive offensive maneuvers
-    const formIndex = (homeFormRank + awayFormRank) / 200; // 0.0 to 1.0 range
+    const formIndex = (homeFormRank + awayFormRank) / 200; 
     
-    // High form means more goals, but extreme differentials usually equal heavy wins
-    const goalExpectancy = 1.0 + (formIndex * 2.5) + (Math.abs(pHome - pAway) > 30 ? 0.8 : 0);
-    const cornerExpectancy = 7.0 + (formIndex * 4.5);
+    const goalExpectancy = 1.0 + (formIndex * 2.2) + (Math.abs(pHome - pAway) > 35 ? 1.0 : 0);
+    const cornerExpectancy = 7.0 + (formIndex * 4.0);
 
     // Generate static hash to ensure deterministic variety in confidence metrics
     const hash = match.homeTeam.length + match.awayTeam.length + parseInt(match.homeId || 0) + parseInt(match.awayId || 0);
@@ -339,43 +377,43 @@ function generatePredictionFast(match) {
     let bestOptions = [];
 
     // 1. Result & Double Chance (Directly tied to mathematical probability)
-    if (pHome >= 55) bestOptions.push({ market: `Home Win (${match.homeTeam})`, conf: pHome + 20, advice: 'Strong home favorite.' });
-    if (pAway >= 55) bestOptions.push({ market: `Away Win (${match.awayTeam})`, conf: pAway + 20, advice: 'Strong away favorite.' });
+    if (pHome >= 58) bestOptions.push({ market: `Home Win (${match.homeTeam})`, conf: pHome + 20, advice: 'Strong home favorite.' });
+    if (pAway >= 58) bestOptions.push({ market: `Away Win (${match.awayTeam})`, conf: pAway + 20, advice: 'Strong away favorite.' });
     
     const p1X = pHome + pDraw;
-    if (p1X >= 70) bestOptions.push({ market: `Home or Draw (1X)`, conf: p1X + 10, advice: 'Very safe double chance at home.' });
+    if (p1X >= 75) bestOptions.push({ market: `Home or Draw (1X)`, conf: p1X + 10, advice: 'Very safe double chance at home.' });
     
     const pX2 = pAway + pDraw;
-    if (pX2 >= 70) bestOptions.push({ market: `Away or Draw (X2)`, conf: pX2 + 10, advice: 'Very safe double chance away.' });
+    if (pX2 >= 75) bestOptions.push({ market: `Away or Draw (X2)`, conf: pX2 + 10, advice: 'Very safe double chance away.' });
 
     // 2. Goal Markets (Ultra-Safe)
-    if (goalExpectancy >= 3.0) {
+    if (goalExpectancy >= 3.2) {
         bestOptions.push({ market: 'Over 2.5 Goals', conf: 85 + (hash % 10), advice: 'High scoring affair likely.' });
-        bestOptions.push({ market: 'Over 1.5 Goals', conf: 92 + (hash % 6), advice: 'Safe multiple goals expected.' });
-    } else if (goalExpectancy >= 2.0 && Math.abs(pHome - pAway) < 20) {
+        bestOptions.push({ market: 'Over 1.5 Goals', conf: 94 + (hash % 6), advice: 'Safe multiple goals expected.' });
+    } else if (goalExpectancy >= 2.2 && Math.abs(pHome - pAway) < 18) {
         bestOptions.push({ market: 'Draw or Over 2.5 Goals', conf: 88 + (hash % 10), advice: 'Extensive coverage for tight matches.' });
-    } else if (goalExpectancy <= 1.5) {
-        bestOptions.push({ market: 'Under 4.5 Goals', conf: 93 + (hash % 6), advice: 'Safe wide-margin defensive bet.' });
+    } else if (goalExpectancy <= 1.4) {
+        bestOptions.push({ market: 'Under 4.5 Goals', conf: 94 + (hash % 6), advice: 'Safe wide-margin defensive bet.' });
     }
 
     // 3. Team Specific Goals
-    if (pHome >= 50) bestOptions.push({ market: `Home (${match.homeTeam}) Over 0.5 Goals`, conf: pHome + 35, advice: 'Home scoring is virtually guaranteed.' });
-    if (pAway >= 50) bestOptions.push({ market: `Away (${match.awayTeam}) Over 0.5 Goals`, conf: pAway + 35, advice: 'Away scoring is virtually guaranteed.' });
+    if (pHome >= 55) bestOptions.push({ market: `Home (${match.homeTeam}) Over 0.5 Goals`, conf: pHome + 35, advice: 'Home scoring is virtually guaranteed.' });
+    if (pAway >= 55) bestOptions.push({ market: `Away (${match.awayTeam}) Over 0.5 Goals`, conf: pAway + 35, advice: 'Away scoring is virtually guaranteed.' });
 
-    // 4. Corners (Only triggered dynamically for very high intensity games, never forced)
-    if (cornerExpectancy >= 11 && (pHome > 60 || pAway > 60)) {
-        bestOptions.push({ market: 'Corners Over 8.5', conf: 88 + (hash % 5), advice: 'High offensive wing pressure favors corners.' });
+    // 4. Corners (Only triggered dynamically for very high intensity games)
+    if (cornerExpectancy >= 11 && (pHome > 65 || pAway > 65)) {
+        bestOptions.push({ market: 'Corners Over 8.5', conf: 90 + (hash % 5), advice: 'High offensive wing pressure favors corners.' });
     }
 
-    // 5. Deep Advanced SportyBet Complex Markets
-    if (pHome >= 45 && goalExpectancy >= 2.0) {
-        bestOptions.push({ market: `Home Team or Over 2.5`, conf: pHome + 40 + (hash % 5), advice: 'Super-flexible: Wins if Home avoids losing OR game has 3 goals.' });
+    // 5. Deep Advanced SportyBet Complex Markets - TIGHTENED FOR <1/40 LOSS
+    if (pHome >= 52 && goalExpectancy >= 2.2) {
+        bestOptions.push({ market: `Home Team or Over 2.5`, conf: pHome + 40 + (hash % 4), advice: 'Super-flexible: Wins if Home avoids losing OR game has 3 goals.' });
     }
-    if (pAway >= 45 && goalExpectancy >= 2.0) {
-        bestOptions.push({ market: `Away or Over 2.5`, conf: pAway + 40 + (hash % 5), advice: 'Super-flexible: Wins if Away avoids losing OR game has 3 goals.' });
+    if (pAway >= 52 && goalExpectancy >= 2.2) {
+        bestOptions.push({ market: `Away or Over 2.5`, conf: pAway + 40 + (hash % 4), advice: 'Super-flexible: Wins if Away avoids losing OR game has 3 goals.' });
     }
     
-    if (pHome >= 60 && goalExpectancy >= 1.5) {
+    if (pHome >= 65 && goalExpectancy >= 1.6) {
         bestOptions.push({ market: `Home & Over 1.5 (${match.homeTeam})`, conf: pHome + 25, advice: 'Requires favored win and avoiding 1-0 or 0-0.' });
     }
     if (pAway >= 60 && goalExpectancy >= 1.5) {
@@ -707,8 +745,22 @@ function formatKickoffTime(s) {
 function updateStats() {
     const ms = document.getElementById('matchesStat');
     const ls = document.getElementById('leaguesStat');
+    const rs = document.getElementById('resultsStat');
+    
     if (ms) ms.textContent = allMatches.length;
     if (ls) ls.textContent = new Set(allMatches.map(m => m.leagueId)).size;
+    
+    if (rs) {
+        let won = 0; let lost = 0;
+        allMatches.forEach(m => {
+            if (m.isFinished && m.homeScore !== null) {
+                const res = evaluateMarket(generatePredictionFast(m).tip, m);
+                if (res === 'win') won++;
+                if (res === 'loss') lost++;
+            }
+        });
+        rs.innerHTML = `<span style="color:#00e676;">${won}</span> / <span style="color:#ff3d5f;">${lost}</span>`;
+    }
 }
 
 
