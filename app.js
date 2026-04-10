@@ -737,11 +737,36 @@ function generateVIPSlip() {
         }
 
         // Render Slip Modal
+        let accaWon = 0;
+        let accaLost = 0;
+        let accaPending = 0;
+        
+        slip.forEach(item => {
+            if (item.match.isFinished && item.match.homeScore !== null) {
+                const res = evaluateMarket(item.marketText, item.match);
+                if (res === 'win') accaWon++;
+                else if (res === 'loss') accaLost++;
+                else accaPending++;
+            } else {
+                accaPending++;
+            }
+        });
+        
+        let slipStatusBadge = '';
+        if (accaLost > 0) {
+            slipStatusBadge = `<div style="background:rgba(255,61,95,0.2); color:#ff3d5f; padding:6px 12px; border-radius:8px; font-weight:900; font-size:0.9rem; border:1px solid rgba(255,61,95,0.5); display:inline-block; margin-top:10px;">❌ SLIP BUSTED</div>`;
+        } else if (accaPending === 0 && accaWon === slip.length && slip.length > 0) {
+            slipStatusBadge = `<div style="background:rgba(0,230,118,0.2); color:#00e676; padding:6px 12px; border-radius:8px; font-weight:900; font-size:0.9rem; border:1px solid rgba(0,230,118,0.5); display:inline-block; margin-top:10px;">✅ ACCA WON!</div>`;
+        } else if (accaWon > 0 || accaPending < slip.length) {
+            slipStatusBadge = `<div style="background:rgba(255,255,255,0.1); color:#ccc; padding:6px 12px; border-radius:8px; font-weight:900; font-size:0.9rem; border:1px solid rgba(255,255,255,0.3); display:inline-block; margin-top:10px;">⏸ SLIP PENDING (${accaWon}/${slip.length} Won)</div>`;
+        }
+
         content.innerHTML = `
             <div style="text-align:center; margin-bottom:1.5rem;">
                 <div style="font-size:2.5rem; margin-bottom:5px;">💎</div>
                 <div style="font-size:1.4rem; font-weight:900; color:#fff; text-transform:uppercase; letter-spacing:1px;">VIP Banker Slip</div>
                 <div style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;">Estimated Payout: <strong style="color:#10b981; font-size:1.2rem;">${totalOdds.toFixed(2)}x</strong></div>
+                ${slipStatusBadge}
             </div>
             
             <div style="background:rgba(255,152,0,0.1); border-left:3px solid #ff9800; border-radius:4px; padding:12px; margin-bottom:20px; font-size:0.8rem; color:#e0e0e0; line-height:1.4;">
@@ -749,14 +774,23 @@ function generateVIPSlip() {
             </div>
 
             <div style="display:flex; flex-direction:column; gap:12px; max-height:450px; overflow-y:auto; padding-right:5px; margin-bottom:10px;">
-                ${slip.map((item, i) => `
-                    <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-left:4px solid #10b981; border-radius:8px; padding:12px; transition:transform 0.2s; cursor:default;">
+                ${slip.map((item, i) => {
+                    let badge = '';
+                    if (item.match.isFinished && item.match.homeScore !== null) {
+                        const res = evaluateMarket(item.marketText, item.match);
+                        if (res === 'win') badge = `<span style="background:rgba(0,230,118,0.2); color:#00e676; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:900; margin-left:8px; border:1px solid rgba(0,230,118,0.5);">✅</span>`;
+                        else if (res === 'loss') badge = `<span style="background:rgba(255,61,95,0.2); color:#ff3d5f; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:900; margin-left:8px; border:1px solid rgba(255,61,95,0.5);">❌</span>`;
+                        else badge = `<span style="background:rgba(255,255,255,0.1); color:#ccc; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:900; margin-left:8px;">⏸</span>`;
+                    }
+                    
+                    return `
+                    <div style="background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-left:4px solid ${badge.includes('❌') ? '#ff3d5f' : '#10b981'}; border-radius:8px; padding:12px; transition:transform 0.2s; cursor:default;">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
                             <span style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">${item.match.leagueName}</span>
                             <span style="font-size:0.75rem; color:#10b981; font-weight:800;">~${item.estimatedOdds.toFixed(2)} Odds</span>
                         </div>
                         <div style="font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:10px;">
-                            ${item.match.homeTeam} <span style="color:var(--text-muted); font-size:0.8rem; font-weight:500;">vs</span> ${item.match.awayTeam}
+                            ${item.match.homeTeam} <span style="color:var(--text-muted); font-size:0.8rem; font-weight:500;">vs</span> ${item.match.awayTeam} ${badge}
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div style="background:rgba(255,255,255,0.08); color:#fff; padding:6px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; flex:1; margin-right:10px;">
@@ -767,7 +801,7 @@ function generateVIPSlip() {
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>
             
             <button onclick="closeModal()" style="width:100%; padding:12px; border-radius:8px; border:none; background:rgba(255,255,255,0.1); color:#fff; font-weight:600; cursor:pointer; margin-top:5px; transition:background 0.2s;">Close Slip</button>
