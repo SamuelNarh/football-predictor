@@ -120,6 +120,35 @@ async function loadMatches() {
     }
 }
 
+function formatFallbackLeagueName(slug) {
+    if (!slug) return 'Other Soccer';
+    let s = String(slug).toLowerCase();
+    
+    // Remove specific ESPN suffixes and prefixes
+    s = s.replace(/^\d{4}-\d{2}-/, '').replace(/^\d{4}-/, '');
+    s = s.replace(/-regular-season$/g, '');
+    s = s.replace(/regular-season$/g, '');
+    s = s.replace(/-group-stage$/g, '');
+    s = s.replace(/-knockout-stage$/g, '');
+    s = s.replace(/-playoffs$/g, '');
+    
+    // Map common ugly ones
+    if (s.includes('international-friendly') || s === 'international' || s === 'intl') return 'International Friendlies';
+    if (s.includes('club-friendly')) return 'Club Friendlies';
+    if (s.includes('spanish-primera')) return 'LaLiga';
+    if (s.includes('english-premier')) return 'Premier League';
+    if (s.includes('italian-serie-a')) return 'Serie A';
+    if (s.includes('german-bundesliga')) return 'Bundesliga';
+    if (s.includes('french-ligue-1')) return 'Ligue 1';
+    
+    // Format what's left
+    return s.split('-').map(word => {
+        if (!word) return '';
+        if (word === 'of' || word === 'the' || word === 'de' || word === 'la') return word;
+        return word[0].toUpperCase() + word.substring(1);
+    }).join(' ');
+}
+
 function transformMatch(ev) {
     const comp = ev.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === 'home');
@@ -130,7 +159,7 @@ function transformMatch(ev) {
     const extractedLeagueId = matchUid ? matchUid[0].replace('l:', '') : '0';
     
     const mappedContext = ESPN_LEAGUE_MAP[extractedLeagueId] || { 
-        name: ev.season?.slug?.replace(/-/g, ' ').toUpperCase() || 'Other Soccer', 
+        name: formatFallbackLeagueName(ev.season?.slug), 
         country: '🌍 International', 
         logo: 'https://a.espncdn.com/i/teamlogos/default-team-logo-500.png' 
     };
@@ -400,9 +429,24 @@ function generatePredictionFast(match) {
     if (pHome >= 55) bestOptions.push({ market: `Home (${match.homeTeam}) Over 0.5 Goals`, conf: pHome + 35, advice: 'Home scoring is virtually guaranteed.' });
     if (pAway >= 55) bestOptions.push({ market: `Away (${match.awayTeam}) Over 0.5 Goals`, conf: pAway + 35, advice: 'Away scoring is virtually guaranteed.' });
 
-    // 4. Corners (Only triggered dynamically for very high intensity games)
+    // 4. Corners & Saves (SportyBet Specialized Markets)
     if (cornerExpectancy >= 11 && (pHome > 65 || pAway > 65)) {
-        bestOptions.push({ market: 'Corners Over 8.5', conf: 90 + (hash % 5), advice: 'High offensive wing pressure favors corners.' });
+        bestOptions.push({ market: 'Total Corners Over 8.5', conf: 90 + (hash % 5), advice: 'High offensive wing pressure favors corners.' });
+    }
+    
+    // Asymmetric attacks lead to team-specific corners and saves
+    if (pHome >= 60) {
+        bestOptions.push({ market: `Home (${match.homeTeam}) Corners Over 4.5`, conf: pHome + 25, advice: 'Dominant home team expected to pressure heavily.' });
+        bestOptions.push({ market: `Away (${match.awayTeam}) Total Saves Over 2.5`, conf: pHome + 23, advice: 'Home dominance will force away keeper into action.' });
+    }
+    if (pAway >= 60) {
+        bestOptions.push({ market: `Away (${match.awayTeam}) Corners Over 4.5`, conf: pAway + 25, advice: 'Dominant away team expected to pressure heavily.' });
+        bestOptions.push({ market: `Home (${match.homeTeam}) Total Saves Over 2.5`, conf: pAway + 23, advice: 'Away dominance will force home keeper into action.' });
+    }
+    
+    // Tight games lead to balanced but fewer shots
+    if (goalExpectancy <= 1.5 && cornerExpectancy <= 8.5) {
+        bestOptions.push({ market: 'Total Corners Under 10.5', conf: 90 + (hash % 5), advice: 'Low intensity, heavily contested midfield expected.' });
     }
 
     // 5. Deep Advanced SportyBet Complex Markets - TIGHTENED FOR <1/40 LOSS
@@ -467,7 +511,7 @@ function evaluateMarket(market, match) {
     const total = h + a;
     const txt = market.toLowerCase();
     
-    if (txt.includes('corners') || txt.includes('3 or more goals in a row')) return 'unknown';
+    if (txt.includes('corners') || txt.includes('saves') || txt.includes('3 or more goals in a row')) return 'unknown';
 
     let won = null;
 
@@ -682,7 +726,7 @@ function generateVIPSlip() {
                 }
 
                 // VIP Magic Rule 2: Exclude inherently unpredictable markets
-                if (txt.includes('corners') || txt.includes('draw or')) return;
+                if (txt.includes('corners') || txt.includes('saves') || txt.includes('draw or')) return;
 
                 // VIP Magic Rule 3: Artificial boost for strictly structural / mathematical safety net bets
                 let adjustedConf = opt.conf;
